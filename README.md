@@ -1,184 +1,136 @@
-# LLM Universe | 动手学大模型应用开发
+# 个人知识库助手（llm-universe 实战）
+> 本项目基于 [Datawhale llm-universe](https://github.com/datawhalechina/llm-universe) 教程完成，教材原文见 `README_教材原文.md`。
+> 本仓库中的 `实验记录.md`、各 `step*.py` 与 `.csv` 结果文件为本人实现、实验与结论。
 
 
-<div align=center>
-<img src="figures/C0-0-logo.png" width = "1000">
-</div>
 
-## 项目简介
+一个基于 RAG 的本地知识库问答系统：把文档丢进 `data_base/knowledge_db/`，它就能**只依据这些文档**回答问题，答不出来就说"资料中未提及"，并在网页上连续对话。
 
-[![Stars](https://img.shields.io/github/stars/datawhalechina/llm-universe?style=social)](https://github.com/datawhalechina/llm-universe/stargazers)
-![GitHub forks](https://img.shields.io/github/forks/datawhalechina/llm-universe)
-[![Contributors](https://img.shields.io/badge/Contributors-21-brightgreen)](https://github.com/datawhalechina/llm-universe/graphs/contributors)
-[![Python](https://img.shields.io/badge/Python-3.8+-blue)](https://www.python.org/)
-[![Jupyter Notebook](https://img.shields.io/badge/Jupyter%20Notebook-1.0-orange)](https://jupyter.org/)
-[![Online Reading](https://img.shields.io/badge/Online%20Reading-Click%20Here-blue)](https://datawhalechina.github.io/llm-universe/)
-[![Download PDF](https://img.shields.io/badge/Download%20PDF-Click%20Here-red)](https://github.com/datawhalechina/llm-universe/releases/tag/v1)
+---
 
-本项目是一个面向小白开发者的大模型应用开发教程，旨在基于阿里云服务器，结合个人知识库助手项目，通过一个课程完成大模型开发的重点入门，主要内容包括：
+## 1. 用了什么（可复现的关键信息）
 
-1. **大模型简介**，何为大模型、大模型特点是什么、LangChain 是什么，如何开发一个 LLM 应用，针对小白开发者的简单介绍；
-2. **如何调用大模型 API**，本节介绍了国内外知名大模型产品 API 的多种调用方式，包括调用原生 API、封装为 LangChain LLM、封装为 Fastapi 等调用方式，同时将包括百度文心、讯飞星火、智谱AI等多种大模型 API 进行了统一形式封装；
-3. **知识库搭建**，不同类型知识库文档的加载、处理，向量数据库的搭建；
-4. **构建 RAG 应用**，包括将 LLM 接入到 LangChain 构建检索问答链，使用 Streamlit 进行应用部署
-5. **验证迭代**，大模型开发如何实现验证迭代，一般的评估方法有什么；
+| 项目 | 选择 | 说明 |
+|---|---|---|
+| 生成模型 | **`deepseek-ai/DeepSeek-V3`** | 走硅基流动，`temperature=0` |
+| 向量模型 | **`BAAI/bge-m3`** | 1024 维，走硅基流动 |
+| 裁判模型（评测用） | **`deepseek-ai/DeepSeek-V4.1-Flash`** | 必须比被测模型强，否则会给自己打高分 |
+| 向量库 | **Chroma 1.5.9** | 落盘于 `data_base/vector_db/chroma/` |
+| Python | **3.13**（conda 环境 `llm-universe`） | 见第 5 节版本坑 |
+| **chunk_size / overlap** | **500 / 50** | `RecursiveCharacterTextSplitter` |
+| **top_k** | **3** | 每次检索 3 段原文 |
+| **验证集平均分** | **4.41 / 5**（20 条，库内 15 + 库外 5） | 优化前 3.80 |
 
-本项目主要包括三部分内容：
+### 依赖版本（钉死，别随手升级）
 
-1. **LLM 开发入门**。V1 版本的简化版，旨在帮助初学者最快、最便捷地入门 LLM 开发，理解 LLM 开发的一般流程，可以搭建出一个简单的 Demo。
-2. **LLM 开发技巧**。LLM 开发更进阶的技巧，包括但不限于：Prompt Engineering、多类型源数据的处理、优化检索、召回精排、Agent 框架等
-3. **LLM 应用实例**。引入一些成功的开源案例，从本课程的角度出发，解析这些应用范例的 Idea、核心思路、实现框架，帮助初学者明白其可以通过 LLM 开发什么样的应用。
+```
+pydantic==2.10.6  langchain==0.3.27  langchain-core==0.3.86
+langchain-community==0.3.27  langchain-text-splitters==0.3.11
+langchain-openai==0.3.35  langchain-chroma==0.2.4  chromadb==1.5.9
+pymupdf>=1.24,<2  streamlit==1.66.1  python-dotenv
+```
 
-目前，第一部分已经完稿，欢迎大家阅读学习；第二、三部分正在创作中。
+---
 
-**目录结构说明：**
+## 2. 十五分钟跑起来
 
-      requirements.txt：官方环境下的安装依赖
-      notebook：Notebook 源代码文件
-      docs：Markdown 文档文件
-      figures：图片
-      data_base：所使用的知识库源文件
+```bash
+# 1. 建环境（Python 3.13）
+conda create -n llm-universe python=3.13 -y
 
-## 项目意义
+# 2. 装依赖（用上面那串，不要用项目自带的 requirements.txt）
+D:\anconda\envs\llm-universe\python.exe -m pip install <上面的包>
 
-LLM 正逐步成为信息世界的新革命力量，其通过强大的自然语言理解、自然语言生成能力，为开发者提供了新的、更强大的应用开发选择。随着国内外井喷式的 LLM API 服务开放，如何基于 LLM API 快速、便捷地开发具备更强能力、集成 LLM 的应用，开始成为开发者的一项重要技能。
+# 3. 在项目根目录建 .env，至少这四行
+SILICONFLOW_API_KEY = "sk-你的Key"
+SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1"
+SF_EMBEDDING_MODEL = "BAAI/bge-m3"
+SF_LLM_MODEL = "deepseek-ai/DeepSeek-V3"
 
-目前，关于 LLM 的介绍以及零散的 LLM 开发技能课程已有不少，但质量参差不齐，且没有很好地整合，开发者需要搜索大量教程并阅读大量相关性不强、必要性较低的内容，才能初步掌握大模型开发的必备技能，学习效率低，学习门槛也较高。
+# 4. 冒烟测试：应打印「维度 1024」+ 一句中文回复
+D:\anconda\envs\llm-universe\python.exe check_env.py
 
-本项目从实践出发，结合最常见、通用的个人知识库助手项目，深入浅出逐步拆解 LLM 开发的一般流程、步骤，旨在帮助没有算法基础的小白通过一个课程完成大模型开发的基础入门。同时，我们也会加入 RAG 开发的进阶技巧以及一些成功的 LLM 应用案例的解读，帮助完成第一部分学习的读者进一步掌握更高阶的 RAG 开发技巧，并能够通过对已有成功项目的借鉴开发自己的、好玩的应用。
+# 5. 加载 → 清洗 → 切分（产出 chunks.pkl，788 片）
+D:\anconda\envs\llm-universe\python.exe step4a_chunk.py
 
-## 项目受众
+# 6. 建向量库（只能跑一次！重复跑会追加数据）
+D:\anconda\envs\llm-universe\python.exe step4b_build.py
 
-所有具备基础 Python 能力，想要掌握 LLM 应用开发技能的开发者。
+# 7. 检索验证（建库完先确认检索是准的，再接大模型）
+D:\anconda\envs\llm-universe\python.exe step4c_search.py
 
-**本项目对学习者的人工智能基础、算法基础没有任何要求，仅需要掌握基本 Python 语法、掌握初级 Python 开发技能即可。**
+# 8. 启动网页
+D:\anconda\envs\llm-universe\Scripts\streamlit.exe run app.py
+```
 
-考虑到环境搭建问题，本项目提供了阿里云服务器学生免费领取方式，学生读者可以免费领取阿里云服务器，并通过阿里云服务器完成本课程的学习；本项目同时也提供了个人电脑及非阿里云服务器的环境搭建指南；本项目对本地硬件基本没有要求，不需要 GPU 环境，个人电脑及服务器均可用于学习。
+> 本机有 4 份 Python，所以所有命令都用**完整路径**调用，不依赖 `conda activate`。
 
-**注：本项目主要使用各大模型厂商提供的 API 来进行应用开发，如果你想要学习部署应用本地开源 LLM，欢迎学习同样由 Datawhale 出品的 [Self LLM ｜ 开源大模型食用指南](https://github.com/datawhalechina/self-llm)，该项目将手把手教你如何速通开源 LLM 部署微调全链路！**
+---
 
-**注：考虑到学习难度，本项目主要面向初学者，介绍如何使用 LLM 来搭建应用。如果你想要进一步深入学习 LLM 的理论基础，并在理论的基础上进一步认识、应用 LLM，欢迎学习同样由 Datawhale 出品的 [So Large LM | 大模型基础](https://github.com/datawhalechina/so-large-lm)，该项目将为你提供全面而深入的 LLM 理论知识及实践方法！**
+## 3. 文件说明
 
-## 项目亮点
+| 文件 | 作用 |
+|---|---|
+| `check_env.py` | 冒烟测试：密钥 / embedding 维度 / LLM / 账号可用模型 |
+| `step4a_chunk.py` | 加载 PDF/MD/TXT → 清洗 → 切分 → `chunks.pkl` |
+| `step4b_build.py` | 分批写入 Chroma（含"防重复写入"保护） |
+| `step4c_search.py` | 检索验证，可指定查询：`step4c_search.py "什么是查全率"` |
+| `step5_qa.py` | 单轮问答 + 「裸模型 vs 加知识库」对照 |
+| `step5_chat.py` | 多轮对话（含问题压缩），`-i` 进交互模式 |
+| `app.py` | Streamlit 网页版 |
+| `eval_set.csv` | 20 条验证集（15 库内 + 5 库外） |
+| `step7_eval.py` | 用 LLM 裁判跑验证集，输出 7 维度分 |
+| `step7_optimize.py` | prompt A/B 实验 |
+| `prompt_ab.csv` | 40 条评测明细（20 题 × P1/P2 两个 prompt，Excel 直接打开不乱码） |
+| `ab_full.log` / `eval_baseline.log` | 评测原始日志，可作为分数来源的证据 |
 
-1. 充分面向实践，动手学习大模型开发。相较于其他从理论入手、与实践代差较大的类似教程，本教程基于具有通用性的个人知识库助手项目打造，将普适的大模型开发理念融合在项目实践中，帮助学习者通过动手搭建个人项目来掌握大模型开发技能。
+---
 
-2. 从零开始，全面又简短的大模型教程。本项目针对个人知识库助手项目，对相关大模型开发理论、概念和基本技能进行了项目主导的重构，删去不需要理解的底层原理和算法细节，涵盖所有大模型开发的核心技能。教程整体时长在数小时之内，但学习完本教程，可以掌握基础大模型开发的所有核心技能。
+## 4. 评测结果（这是本项目最该看的部分）
 
-3. 兼具统一性与拓展性。本项目对 GPT、百度文心、讯飞星火、智谱GLM 等国内外主要 LLM API 进行了统一封装，支持一键调用不同的 LLM，帮助开发者将更多的精力放在学习应用与模型本身的优化上，而不需要花时间在繁琐的调用细节上；同时，本教程拟上线 [奇想星球 | AIGC共创社区平台](https://1aigc.cn/)，支持学习者自定义项目为本教程增加拓展内容，具备充分的拓展性。
+| 变体 | 库内 15 条 | 库外 5 条 | 总体 | 拒答率 |
+|---|---|---|---|---|
+| P1 基线 | 4.55 | 1.54 | 3.80 | **0 / 5** |
+| **P2 材料边界（当前采用）** | 4.45 | **4.29** | **4.41** | **5 / 5** |
 
-## 在线阅读地址
+**结论**：总体 +0.61，全部来自"不再编造"。库内 −0.10 在裁判抖动范围内（±0.1），可视为无变化。
 
-[https://datawhalechina.github.io/llm-universe/](https://datawhalechina.github.io/llm-universe/)
+核心问题是 prompt 里那句"如果你不知道答案就说不知道"——它约束的是**模型的认知**，而这道题的答案模型其实知道，所以它从不拒答。改成"如果**资料中**没有相关信息"后，判断依据从"我知不知道"变成"这段文字里有没有"，拒答率立刻从 0 变成 100%。
 
-## PDF 地址
+详细实验过程见 `实验记录.md`。
 
-[https://github.com/datawhalechina/llm-universe/releases/tag/v1](https://github.com/datawhalechina/llm-universe/releases/tag/v1)
+---
 
-## 内容大纲
+## 5. 踩过的坑（照抄省一天）
 
-### 第一部分 LLM 开发入门
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| pip 去下 `numpy-1.26.4.tar.gz` 然后报 metadata 错误 | 装了 `unstructured`（拖 spacy+numba，3.13 上没 numpy 轮子） | md/txt 改用 `TextLoader` |
+| `chroma-hnswlib` 编译失败 | chromadb 被降到 <1.0（Windows 轮子只到 cp312） | 钉 `chromadb==1.5.9` + `langchain-chroma==0.2.4` |
+| `AttributeError: 'Collection' object has no attribute 'persist'` | 用了教材的 `vectordb.persist()` | chromadb 1.x 自动落盘，删掉这行 |
+| 终端跑 LLM 像卡死 | `invoke()` 一次性返回，38 秒内屏幕无任何输出 | 改用 `.stream()`，首字 1 秒 |
+| prompt 里的 JSON 示例报 `KeyError: missing variables` | LangChain 把 `{...}` 当模板变量 | 字面花括号写成 `{{ }}` |
+| 多轮对话"改写问题"却输出了答案 | 历史以 human/ai 消息传入，模型模仿上一轮答案风格 | 历史降级为 system 里的纯文本 |
+| 查 `few-shot` 返回"压缩感知" | 语料里该词出现 **0 次**，检索器被迫给一个"最不坏"的 | 见下方"已知限制" |
 
-负责人：邹雨衡
+---
 
-1. [LLM 介绍](./notebook/C1%20大型语言模型%20LLM%20介绍/) @高立业
-   1. [x] [LLM 的理论介绍](https://github.com/datawhalechina/llm-universe/blob/main/notebook/C1%20%E5%A4%A7%E5%9E%8B%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%20LLM%20%E4%BB%8B%E7%BB%8D/C1.md#11-%E5%A4%A7%E5%9E%8B%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8Bllm%E7%AE%80%E4%BB%8B)
-   2. [x] [什么是 RAG](https://github.com/datawhalechina/llm-universe/blob/main/notebook/C1%20%E5%A4%A7%E5%9E%8B%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%20LLM%20%E4%BB%8B%E7%BB%8D/C1.md#12-%E4%BB%80%E4%B9%88%E6%98%AF-rag)
-   3. [x] [什么是 LangChain](https://github.com/datawhalechina/llm-universe/blob/main/notebook/C1%20%E5%A4%A7%E5%9E%8B%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%20LLM%20%E4%BB%8B%E7%BB%8D/C1.md#13-langchain)
-   4. [x] [开发 LLM 应用的整体流程](https://github.com/datawhalechina/llm-universe/blob/main/notebook/C1%20%E5%A4%A7%E5%9E%8B%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%20LLM%20%E4%BB%8B%E7%BB%8D/C1.md#14-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%BC%80%E5%8F%91)
-   5. [x] [阿里云服务器的基本使用](https://github.com/datawhalechina/llm-universe/blob/main/notebook/C1%20%E5%A4%A7%E5%9E%8B%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%20LLM%20%E4%BB%8B%E7%BB%8D/C1.md#15-%E9%98%BF%E9%87%8C%E4%BA%91%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E5%9F%BA%E6%9C%AC%E4%BD%BF%E7%94%A8)
-   6. [x] [GitHub Codespaces 的基本使用（选修）](https://github.com/datawhalechina/llm-universe/blob/main/notebook/C1%20%E5%A4%A7%E5%9E%8B%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%20LLM%20%E4%BB%8B%E7%BB%8D/C1.md#16-github-codespaces-%E6%A6%82%E8%BF%B0%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE%E9%80%89%E4%BF%AE)
-   7. [x] [环境配置](https://github.com/datawhalechina/llm-universe/blob/main/notebook/C1%20%E5%A4%A7%E5%9E%8B%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%20LLM%20%E4%BB%8B%E7%BB%8D/C1.md#17-%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE)
-2. [使用 LLM API 开发应用](./notebook/C2%20使用%20LLM%20API%20开发应用/) @毛雨
-   1. [x] 基本概念
-   2. [x] 使用 LLM API
-        - ChatGPT
-        - 文心一言
-        - 讯飞星火
-        - 智谱 GLM
-   3. [x] Prompt Engineering
-3. [搭建知识库](./notebook/C3%20搭建知识库/) @娄天奥
-   1. [x] 词向量及向量知识库介绍
-   2. [x] 使用 Embedding API
-   3. [x] 数据处理：读取、清洗与切片
-   4. [x] 搭建并使用向量数据库
-4. [构建 RAG 应用](./notebook/C4%20构建%20RAG%20应用/) @徐虎
-   1. [x] 将 LLM 接入 LangChain
-        - ChatGPT
-        - 文心一言
-        - 讯飞星火
-        - 智谱 GLM
-   2. [x] 基于 LangChain 搭建检索问答链
-   3. [x] 基于 Streamlit 部署知识库助手
-5. [系统评估与优化](./notebook/C5%20系统评估与优化/) @邹雨衡
-   1. [x] 如何评估 LLM 应用
-   2. [x] 评估并优化生成部分
-   3. [x] 评估并优化检索部分
+## 6. 已知限制（诚实地写出来）
 
-### 第二部分 进阶 RAG 技巧（正在创作）
+1. **默认语料不适合定义类问题。** 南瓜书是《机器学习公式详解》，通篇推导公式、几乎不"定义"概念。问"什么是 PCA"检索效果很差，问"查准率和查全率怎么权衡"就好得多。
+2. **`easy_rl/强化学习入门指南.txt` 是语音转写稿**，含大量错字（"引用方向"=研究方向），属于噪音源，可考虑移除。
+3. **向量检索不会说"我没有"。** 库里没有答案时，它仍会返回 top-k 个"最不坏"的片段，靠 LLM 判断力兜底。因此 prompt 必须明确边界。
+4. **裁判有 ±0.1 抖动**，同一份代码两次跑分数不完全相同。提升幅度小于 0.2 的一律不算数。
+5. **top-3 里常有噪音**（封面页、无关公式）。实测"什么是南瓜书"的 3 段里只有 1 段有用。
 
-负责人：高立业
+---
 
-1. 背景
-   1. [ ] 架构概览
-   2. [ ] 存在的问题
-   3. [ ] 解决方法
-2. [数据处理](./notebook/C7%20高级%20RAG%20技巧/2.%20数据处理/)
-   1. [x] 多类型文档处理
-   2. [x] 分块优化
-   3. [x] 向量模型的选择
-   4. [x] 微调向量模型（进阶）
-3. 索引层面
-   1. [ ] 索引结构
-   2. [ ] 混合检索
-   3. [ ] 假设性问题
-4. 检索阶段
-   1. [ ] query 过滤
-   2. [ ] 对齐 query 和 文档
-   3. [ ] 对齐检索和 LLM
-5. 生成阶段
-   1. [ ] 后处理
-   2. [ ] 微调 LLM（进阶）
-   3. [ ] 参考引用
-6. 增强阶段
-   1. [ ] 上下文增强
-   2. [ ] 增强流程
-7. RAG 工程化评估
+## 7. 下一步（按性价比排序）
 
-### 第三部分 开源 LLM 应用解读
+> 前两条已经做完了，结论见 `实验记录.md`：**rerank 零收益（不做）**，**query 改写 +0.60（有效，待接入 UI）**。
 
-负责人：徐虎
-
-1. ChatWithDatawhale——个人知识库助手解读
-2. 天机——人情世故大模型解读
-
-## 致谢
-
-**核心贡献者**
-- [娄天奥-项目负责人](https://github.com/lta155)（Datawhale成员-中国科学院大学研究生）
-- [邹雨衡-项目负责人](https://github.com/logan-zou)（Datawhale成员-对外经济贸易大学研究生）
-- [高立业-第二部分负责人](https://github.com/0-yy-0)（DataWhale成员-算法工程师）
-- [徐虎-第三部分负责人](https://github.com/xuhu0115)（Datawhale成员-算法工程师）
-
-**主要贡献者**
-
-- [毛雨-内容创作者](https://github.com/Myoungs )（后端开发工程师）
-- [崔腾松-项目支持者](https://github.com/2951121599)（Datawhale成员-奇想星球联合发起人）
-- [June-项目支持者](https://github.com/JuneYaooo)（Datawhale成员-奇想星球联合发起人）
-
-**其他**
-
-1. 特别感谢 [@Sm1les](https://github.com/Sm1les)、[@LSGOMYP](https://github.com/LSGOMYP) 对本项目的帮助与支持；
-2. 特别感谢[奇想星球 | AIGC共创社区平台](https://1aigc.cn/)提供的支持，欢迎大家关注；
-3. 如果有任何想法可以联系我们 DataWhale 也欢迎大家多多提出 issue；
-4. 特别感谢以下为教程做出贡献的同学！
-
-<a href="https://github.com/datawhalechina/llm-universe/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=datawhalechina/llm-universe" />
-</a>
-
-Made with [contrib.rocks](https://contrib.rocks).
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=datawhalechina/llm-universe&type=Date)](https://star-history.com/#datawhalechina/llm-universe&Date)
+1. **chunk_size 对比实验**：300 / 500 / 800 各建一次库，看平均分与落差变化（要重建 3 次库）
+2. **top_k 敏感性**：1 / 3 / 5 / 8，不用重建库，改参数即可
+3. **把 query 改写接进 `app.py`**：作为侧边栏开关，因为会给首字延迟加 1~2 秒
+4. **换语料**：把 `data_base/knowledge_db/` 换成自己领域的文档——这才是"个人知识库"的本意
+5. **在多文档语料下重测 rerank**：本书单语料下它无效，但多文档竞争场景下结论可能反转
