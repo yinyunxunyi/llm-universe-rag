@@ -1,4 +1,7 @@
 # 个人知识库助手（llm-universe 实战）
+> 本项目基于 [Datawhale llm-universe](https://github.com/datawhalechina/llm-universe) 教程完成，教材原文见 `README.md`。
+> 本仓库中的 `README_我的项目.md`、`实验记录.md`、各 `step*.py` 与 `.csv` 结果文件为本人实现、实验与结论。
+
 
 一个基于 RAG 的本地知识库问答系统：把文档丢进 `data_base/knowledge_db/`，它就能**只依据这些文档**回答问题，答不出来就说"资料中未提及"，并在网页上连续对话。
 
