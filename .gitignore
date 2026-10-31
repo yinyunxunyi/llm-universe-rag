@@ -163,11 +163,13 @@ cython_debug/
 .idea/
 .DS_Store
 # ===== 项目专属忽略 =====
-# 旧向量库备份，25MB，确认新库正常后可删除
+# 向量库的历史备份（每个约 11MB）。只留当前的 chroma/，备份不进仓库
 data_base/vector_db/chroma_old_0x_backup/
+data_base/vector_db/chroma_*_backup/
 
 # 视频文件：RAG 只读 PDF/MD/TXT，mp4 完全用不到，35MB
 *.mp4
 
 # 切分中间产物，跑 step4a_chunk.py 可重新生成
 chunks.pkl
+chunks_*.pkl

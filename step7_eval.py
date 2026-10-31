@@ -27,10 +27,25 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(HERE, ".env"))
-PERSIST = os.path.join(HERE, "data_base", "vector_db", "chroma")
 EVAL_SET = os.path.join(HERE, "eval_set.csv")
-RESULT = os.path.join(HERE, "eval_result.csv")
 TOP_K = 3
+
+
+def _arg(name, default=None):
+    """取命令行参数，如 --db 路径 / --out 文件名"""
+    if name in sys.argv:
+        return sys.argv[sys.argv.index(name) + 1]
+    return default
+
+
+# 默认用当前的库；--db 可指向别的库（做消融对比时用，如 chroma_788_backup）
+PERSIST = os.path.join(HERE, "data_base", "vector_db", "chroma")
+if _arg("--db"):
+    PERSIST = _arg("--db") if os.path.isabs(_arg("--db")) else os.path.join(HERE, _arg("--db"))
+
+RESULT = os.path.join(HERE, _arg("--out", "eval_result.csv"))
+if not os.path.isabs(RESULT):
+    RESULT = os.path.join(HERE, RESULT)
 
 DIMS = ["知识查找正确性", "回答一致性", "回答幻觉比例", "回答正确性", "逻辑性", "通顺性", "智能性"]
 
@@ -60,10 +75,15 @@ emb = OpenAIEmbeddings(
 vectordb = Chroma(persist_directory=PERSIST, embedding_function=emb)
 retriever = vectordb.as_retriever(search_kwargs={"k": TOP_K})
 
+# 这里的 prompt 必须与 app.py / step5 里已上线的那版**逐字一致**（P2 材料边界）。
+# 原来这里还是 P1 基线（"如果你不知道答案就说不知道"），会导致
+# "评测用的 prompt" 和 "实际跑的 prompt" 不是同一个，分数无法互相比较。
 qa_prompt = ChatPromptTemplate.from_messages([
-    ("system", "使用以下上下文来回答最后的问题。如果你不知道答案，就说你不知道，不要试图编造答案。"
-               "最多使用三句话。尽量使答案简明扼要。\n\n{context}"),
-    ("human", "{input}"),
+    ("system", "请只依据下面【资料】中的内容回答问题。\n"
+               "如果【资料】中没有相关信息，请回答\"资料中未提及该内容\"。\n"
+               "不要使用你自身的知识进行补充或推测。\n\n"
+               "【资料】\n{context}"),
+    ("human", "问题：{input}"),
 ])
 qa_chain = qa_prompt | answerer | StrOutputParser()
 
@@ -162,7 +182,9 @@ def main():
         rows = rows[:limit]
 
     print(f"裁判模型：{JUDGE_MODEL}")
-    print(f"被测模型：{ANSWER_MODEL}    共 {len(rows)} 条\n")
+    print(f"被测模型：{ANSWER_MODEL}    共 {len(rows)} 条")
+    print(f"向量库：{os.path.relpath(PERSIST, HERE)}  记录数 {vectordb._collection.count()}")
+    print(f"明细输出：{os.path.basename(RESULT)}\n")
 
     results = []
     t0 = time.time()

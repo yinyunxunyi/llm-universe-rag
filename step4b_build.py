@@ -9,7 +9,10 @@ step4b_build.py — 建 Chroma 向量库（对应文档 Step 4.5）
   3) 只跑一次 —— 重复跑会追加数据，同一段被检索到两次
 
 运行：  D:\\anconda\\envs\\llm-universe\\python.exe step4b_build.py
-重建：  先删 data_base\\vector_db\\chroma 目录，再跑
+        默认建到 data_base\\vector_db\\chroma
+重建：  先删（或改名）data_base\\vector_db\\chroma 目录，再跑
+换目录：D:\\anconda\\envs\\llm-universe\\python.exe step4b_build.py 目标目录
+        做 chunk_size 对比时用得上：各建一个库，互不覆盖
 """
 
 import os
@@ -25,7 +28,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(HERE, ".env"))
 
 PKL = os.path.join(HERE, "chunks.pkl")
+# 默认目标；命令行给了第一个参数就建到那个目录（相对路径按项目根目录算）
 PERSIST = os.path.join(HERE, "data_base", "vector_db", "chroma")
+if len(sys.argv) > 1:
+    PERSIST = sys.argv[1] if os.path.isabs(sys.argv[1]) else os.path.join(HERE, sys.argv[1])
 BATCH = 64
 
 # ---------- 前置检查 ----------

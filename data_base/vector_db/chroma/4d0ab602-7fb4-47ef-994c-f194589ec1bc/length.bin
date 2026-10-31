@@ -1,0 +1,1 @@
+invalid type: string "其中，使用了动作改变条件\nQπ(x,π′(x))⩾Vπ(x)\n以及状态-动作值函数\nQπ(x′,π′(x′))=X\nx′∈XPπ′(x′)x′→x′(Rπ′(x′)x′→x′+γVπ(x′))\n于是，当前状态的最优值函数为\nV∗(x)=Vπ′(x)⩾Vπ(x)16.4\n免模型学习\n16.4.1\n式(16.20)的解释\n��。14.5.4\n式(14.44)的解释\nsstepsarealwaysaccepted.14.4.6\n�

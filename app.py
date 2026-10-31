@@ -94,6 +94,38 @@ def history_text(history) -> str:
     return "\n".join(lines)
 
 
+def mmss(ms: int) -> str:
+    """毫秒 → 分:秒。字幕类文档靠它告诉用户「这句话在视频的第几分钟」。"""
+    s = int(ms) // 1000
+    return f"{s // 60:02d}:{s % 60:02d}"
+
+
+def locate(md) -> str:
+    """
+    给一个切片算出「它在原文的哪个位置」。
+    不同格式能提供的定位信息不一样，这里做统一：pdf 给页码，字幕给时间区间，
+    纯文本类（txt/md）没有位置概念，就不显示。
+    """
+    if md.get("start_ms") is not None:
+        return f"{mmss(md['start_ms'])}–{mmss(md['end_ms'])}"
+    if md.get("page") is not None:
+        return f"p{md['page']}"
+    return ""
+
+
+def cite(d) -> str:
+    md = d.metadata
+    name = os.path.basename(md.get("source", "?"))
+    fmt = md.get("format", "")
+    pos = locate(md)
+    head = f"{name}"
+    if fmt:
+        head += f"  [{fmt}]"
+    if pos:
+        head += f"  {pos}"
+    return f"{head}\n{d.page_content[:160]}"
+
+
 def condense_question(res, question: str, history) -> str:
     if not history:
         return question
@@ -120,7 +152,7 @@ with st.sidebar:
 
 # ---------------- 主体 ----------------
 st.title("📚 个人知识库助手")
-st.caption("基于 llm-universe 默认语料（南瓜书 + 提示工程教程）")
+st.caption("基于 llm-universe 默认语料（南瓜书 + 提示工程教程 + 强化学习入门指南视频字幕）")
 
 if not os.path.exists(os.path.join(PERSIST, "chroma.sqlite3")):
     st.error("找不到向量库。请先在项目根目录运行 step4b_build.py 建库。")
@@ -173,11 +205,7 @@ if question:
             placeholder.markdown(buf + "▌")     # 光标效果，让人知道还在写
         placeholder.markdown(buf)
 
-        sources = [
-            f"{os.path.basename(d.metadata.get('source', '?'))}  "
-            f"p{d.metadata.get('page', '-')}\n{d.page_content[:160]}"
-            for d in docs
-        ]
+        sources = [cite(d) for d in docs]
         if show_sources:
             with st.expander(f"引用片段（{len(sources)}）"):
                 for s in sources:
